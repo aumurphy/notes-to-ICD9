@@ -1,1 +1,9 @@
 data/*.csv
+.DS_Store
+.ipynb_checkpoints
+*.bin
+*.bin.optim
+__pycache__/
+
+data/*
+
