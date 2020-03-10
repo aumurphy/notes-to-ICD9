@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-CS224N 2019-20: Homework 4
-nmt_model.py: BiLSTM Model
-Pencheng Yin <pcyin@cs.cmu.edu>
-Sahil Chopra <schopra8@stanford.edu>
-Vera Lin <veralin@stanford.edu>
+CS224N 
+bilstm_model.py: BiLSTM Model
+Austin Murphy <amurphy5@stanford.edu>
 """
 from collections import namedtuple
 import sys
@@ -35,17 +33,14 @@ class BiLSTM(nn.Module):
         print("vocab.num_labels: ", vocab.num_labels)
         self.num_labels = vocab.num_labels
         
-        self.encoder = None
-        self.h_projection = None
-        self.c_projection = None
-        
         self.encoder = nn.LSTM(input_size=embed_size,
                                hidden_size=hidden_size, 
                                bias=True, 
-                               # dropout=self.dropout_rate,
+#                                dropout=self.dropout_rate,
                                bidirectional=True)
         
-#         self.dropout1 = nn.Dropout()
+        self.dropout1 = nn.Dropout2d(p=self.dropout_rate)
+        self.dropout2 = nn.Dropout(p=self.dropout_rate)
         
         self.attention_projection = nn.Linear(in_features=2*hidden_size, 
                                                  out_features=self.num_labels, 
@@ -73,9 +68,13 @@ class BiLSTM(nn.Module):
 #         print("enc_hiddens.shape: ", enc_hiddens.shape)
 #         print("last_hidden.shape: ", last_hidden.shape)
 #         print("last_cell.shape: ", last_cell.shape)
+
+#         enc_hiddens = self.dropout1(enc_hiddens)
         
         alpha = self.attention_projection(enc_hiddens)
 #         print("alpha.shape: ", alpha.shape)
+
+        alpha = self.dropout1(alpha)
         
         alpha_soft = self.attention_softmax(alpha)
 #         print(np.sum(alpha_soft.detach().numpy(),axis=0))
@@ -86,6 +85,8 @@ class BiLSTM(nn.Module):
         M = torch.bmm(alpha_soft.permute([1,2,0]), enc_hiddens.permute([1,0,2]))
 #         print("M.shape: ", M.shape)
 #         torch.stack(combined_outputs, dim=0)
+
+#         M = self.dropout2(M)
 
         scores = self.labels_projection(M)
 #         print(scores)
