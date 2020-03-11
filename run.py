@@ -251,7 +251,7 @@ def train(args: Dict):
             labels_torch = ind_to_one_hot(notes_labels, vocab.num_labels)
             predictions = torch.zeros(example_scores.shape)
             predictions[example_scores >= .5] = 1
-            if train_iter % 250 == 0:
+            if train_iter % 2000 == 0:
                 print("example_scores[0]: \n", example_scores[0])
                 print("predictions[0]:  \n", predictions[0])
                 print("labels_torch[0]: \n", labels_torch[0])
