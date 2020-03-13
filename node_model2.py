@@ -53,7 +53,14 @@ class Node2(nn.Module):
                                                  out_features=self.num_labels, 
                                                  bias=False)
         self.attention_softmax = nn.Softmax(dim=0)
-        self.labels_projection = nn.Linear(in_features=2*hidden_size, 
+#         self.labels_projection = nn.Linear(in_features=2*hidden_size, 
+#                                           out_features=1, 
+#                                           bias=False)
+        self.labels_projection = F.relu(nn.Linear(in_features=2*hidden_size, 
+                                          out_features=100, 
+                                          bias=False))
+        
+        self.labels_projection2 = nn.Linear(in_features=100, 
                                           out_features=1, 
                                           bias=False)
         
@@ -104,7 +111,9 @@ class Node2(nn.Module):
 
         M = self.dropout1(M)
 
-        scores = self.labels_projection(M)
+        M = self.labels_projection(M)
+        
+        scores = self.labels_projection2(M)
     
         scores = torch.sigmoid(torch.squeeze(scores,-1))
     
