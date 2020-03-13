@@ -267,7 +267,7 @@ def train(args: Dict):
 #         epoch_labels = None
         epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
         epoch_labels = torch.zeros(epoch_labels.shape).to(device)
-        epoch_predictions = torch.zeros(epoch_labels.shape.to(device)
+        epoch_predictions = torch.zeros(epoch_labels.shape).to(device)
         print("****:", epoch_predictions.shape)
         
         item_num = 0
