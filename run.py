@@ -74,18 +74,10 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
     """
     was_training = model.training
     model.eval()
-#     device = torch.device("cuda:0" if args['--cuda'] else "cpu")
 
     cum_loss = 0.
     cum_tgt_labels = 0.
     
-#     epoch_TP = 0.
-#     epoch_FP = 0.
-#     epoch_FN = 0.
-    
-#     _, dev_labels = unzip(dev_data)
-    
-#     epoch_labels = ind_to_one_hot(dev_labels, num_labels)
     epoch_labels = torch.zeros((len(dev_data),num_labels), device=device)
     epoch_predictions = torch.zeros(epoch_labels.shape, device=device)
 
@@ -115,10 +107,6 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
             epoch_predictions[item_num:item_num+labels_torch.shape[0],:] = predictions
             item_num += labels_torch.shape[0]
             num_batch += 1
-#             TP, FP, FN = update_f1_metrics(predictions, labels_torch)
-#             epoch_TP += TP
-#             epoch_FP += FP
-#             epoch_FN += FN
             
             cum_loss += loss.item()
 
@@ -126,22 +114,15 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
             cum_tgt_labels += tgt_labels_num_to_predict
             
         # end of 'epoch'
-        f1 = f1_score(y_true=epoch_labels, y_pred=epoch_predictions, 
+        f1 = f1_score(y_true=epoch_labels.cpu(), y_pred=epoch_predictions.cpu(), 
                          pos_label=1, average='micro')
 #         print("calcualted val f1: ", f1)
-        cr = classification_report(y_true=epoch_labels, y_pred=epoch_predictions, 
+        cr = classification_report(y_true=epoch_labels.cpu(), y_pred=epoch_predictions.cpu(), 
                                    labels=None, target_names=None, 
                                    sample_weight=None, digits=2, 
                                    output_dict=False)
         print("******** Validation Report *********\n",cr)
-        
-        
-#         if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
-#             m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
-#         else:
-#             m_f1 = 0
-#         micro_F1_scores.append(m_f1)
-#         print("Hermonic mean: ", m_f1)
+        print("************************************")
 
         ppl = np.exp(cum_loss / cum_tgt_labels)
 
@@ -266,11 +247,6 @@ def train(args: Dict):
 #         if epoch == 20:
 #             exit(0)
 
-        epoch_TP = 0.
-        epoch_FP = 0.
-        epoch_FN = 0.
-#         epoch_predictions = None
-#         epoch_labels = None
         epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
         epoch_labels = torch.zeros(epoch_labels.shape).to(device)
         epoch_predictions = torch.zeros(epoch_labels.shape).to(device)
@@ -278,7 +254,6 @@ def train(args: Dict):
         item_num = 0
         for notes_docs, notes_labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
             train_iter += 1
-#             print("train_iter: {}".format(train_iter))
 
             optimizer.zero_grad()
 
@@ -300,19 +275,13 @@ def train(args: Dict):
 #             print("epoch_predictions.shape: ", epoch_predictions.shape)
 #             print("epoch_labels.shape: ", epoch_labels.shape)
 #             print(epoch_predictions)
-            if train_iter % 2000 == 0:
-                print("example_scores[0]: \n", example_scores[0])
-                print("predictions[0]:  \n", predictions[0])
-                print("labels_torch[0]: \n", labels_torch[0])
+            if train_iter % 1000 == 0:
+                idx = np.random.randint(low=0, high=batch_size-1)
+                print("Training example: \n")
+                print("example_scores[idx]: \n", example_scores[idx])
+                print("predictions[idx]:  \n", predictions[idx])
+                print("labels_torch[idx]: \n", labels_torch[idx])
             
-            TP, FP, FN = update_f1_metrics(predictions, labels_torch)
-            epoch_TP += TP
-            epoch_FP += FP
-            epoch_FN += FN
-                                        
-#             print(predictions.device)
-#             print("hello :) ")
-#             print(epoch_labels.device)
 
             assert(labels_torch.shape == example_scores.shape)
             batch_loss = loss_func(example_scores, labels_torch)
@@ -449,13 +418,6 @@ def train(args: Dict):
         print("Training micro-f1: ", f1)
         
         
-        
-#         if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
-#             m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
-#         else:
-#             m_f1 = 0
-#         training_micro_F1_scores.append(m_f1)
-#         print("Training micro-F1: ", m_f1)
 
 
 
