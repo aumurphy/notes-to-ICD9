@@ -3,7 +3,7 @@
 
 """
 CS224N 
-bilstm_model.py: BiLSTM Model
+node.py: Node (Parent) Model
 Austin Murphy <amurphy5@stanford.edu>
 """
 from collections import namedtuple
@@ -17,15 +17,17 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import numpy as np
 
 from model_embeddings import ModelEmbeddings
+from bilstm_model import BiLSTM
 
 
-class BiLSTM(nn.Module):
+class Node2(nn.Module):
     """
-    Simple Neural Multilabel Classification Model:
-    - Bidirectional LSTM Encoder
+    Node Class that inherits the BiLSTM models created in bilstm_model.py
+    Beginning Node models have 2 BiLSTMs, future versions can have more
+    
     """
     def __init__(self, embed_size, hidden_size, vocab, dropout_rate):
-        super(BiLSTM, self).__init__()
+        super(Node2, self).__init__()
         self.model_embeddings = ModelEmbeddings(embed_size, vocab)
         self.hidden_size = hidden_size
         self.dropout_rate = dropout_rate
@@ -33,14 +35,28 @@ class BiLSTM(nn.Module):
         print("vocab.num_labels: ", vocab.num_labels)
         self.num_labels = vocab.num_labels
         
-        self.encoder = nn.LSTM(input_size=embed_size,
+        self.encoder0 = nn.LSTM(input_size=embed_size,
                                hidden_size=hidden_size, 
                                bias=True, 
-#                                dropout=self.dropout_rate,
+                               # dropout=self.dropout_rate,
+                               bidirectional=True)
+
+        self.encoder1 = nn.LSTM(input_size=embed_size,
+                               hidden_size=hidden_size, 
+                               bias=True, 
+                               # dropout=self.dropout_rate,
                                bidirectional=True)
         
-        self.dropout1 = nn.Dropout2d(p=self.dropout_rate)
-        self.dropout2 = nn.Dropout(p=self.dropout_rate)
+#         self.first_bilstm = BiLSTM(embed_size=embed_size,
+#                                     hidden_size=hidden_size,
+#                                     dropout_rate=dropout_rate,
+#                                     vocab=vocab)
+#         self.second_bilstm = BiLSTM(embed_size=embed_size,
+#                                     hidden_size=hidden_size,
+#                                     dropout_rate=dropout_rate,
+#                                     vocab=vocab)
+        
+#         self.dropout1 = nn.Dropout()
         
         self.attention_projection = nn.Linear(in_features=2*hidden_size, 
                                                  out_features=self.num_labels, 
@@ -51,58 +67,78 @@ class BiLSTM(nn.Module):
                                           bias=False)
         
     def forward(self, in_sents: List[List[str]], target_labels: List[List[int]]):
-        # Compute sentence lengths
-        in_sents_lengths = [len(s) for s in in_sents]
+        
+        # in_sents should be (1000, whatever)
+        # split in half
+        num_notes = len(in_sents)
+        length_of_each_note = int(len(in_sents[0])/2)
+        
         
         # Convert list of lists into tensors
-        print(self.device)
         source_padded = self.vocab.notes_.to_input_tensor(in_sents, device=self.device)   
-                # Tensor: (src_len, b)
-        
-#         print("len(in_sents): ", len(in_sents))
-#         print("source_padded.shape: ", source_padded.shape)
-#         print(target_labels.shape)
+                        # Tensor: (src_len, b)
+#         print(num_notes)
 
         X = self.model_embeddings.note_embeds(source_padded)
-#         print("X.shape: ", X.shape) (500, 16, 256) == (note length, batch_size, embedding length)
+#         print("X.shape: ", X.shape) # (1000, 16, 256)
+#         print(in_sents[0])
+        X0 = X[:length_of_each_note,:,:]
+        X1 = X[length_of_each_note:,:,:]
         
-        enc_hiddens, (last_hidden, last_cell) = self.encoder(X)
-#         print("enc_hiddens.shape: ", enc_hiddens.shape) 
-#                 (500, 16, 512) == (note length, batch_size, hidden_size)
+        enc_hiddens0, _ = self.encoder0(X0)
+        enc_hiddens1, _ = self.encoder1(X1)
+#         print(enc_hiddens0.shape)
+#         print(enc_hiddens1.shape)
+        
+        enc_hiddens = torch.cat([enc_hiddens0, enc_hiddens1],0)
+#         print(enc_hiddens.shape)
+        
+#         scores0 = self.first_bilstm(in_sents0,target_labels)
+#         scores1 = self.second_bilstm(in_sents1,target_labels)
+#         print(scores0[0])
+#         print(scores1[0])
 
-#         enc_hiddens = self.dropout1(enc_hiddens)
-        
         alpha = self.attention_projection(enc_hiddens)
-#         print("alpha.shape: ", alpha.shape) (500, 16, 19)
-
-        alpha = self.dropout1(alpha)
+#         print("alpha.shape: ", alpha.shape)
         
+                
         alpha_soft = self.attention_softmax(alpha)
-#         print("alpha_soft.shape: ", alpha_soft.shape) (500, 16, 19)
-        # for each label, a 500-length probability vector of alphas
-#         print(sum(alpha_soft[:,0,0]))
-#         print(sum(alpha_soft[0,0,:]))
 #         print(np.sum(alpha_soft.detach().numpy(),axis=0))
         
-
-#         print("alpha_permuted shape: ", alpha_soft.permute([2,1,0]).shape)
-        
         M = torch.bmm(alpha_soft.permute([1,2,0]), enc_hiddens.permute([1,0,2]))
-#         print("M.shape: ", M.shape) (16, 19, 512) == (batch_size, num labels, hidden_size)
+#         print("M.shape: ", M.shape)
 #         torch.stack(combined_outputs, dim=0)
 
-#         M = self.dropout2(M)
-
         scores = self.labels_projection(M)
-#         print(scores)
-#         print(F.sigmoid(scores))
+    
         scores = torch.sigmoid(torch.squeeze(scores,-1))
+    
 #         print("scores.shape: ", scores.shape)
-#         print("scores squeezed shape: ", torch.squeeze(scores,-1).shape)
-#         print("scores: \n", scores)
-#         scores = 0.
         
         return scores
+        
+
+
+        
+
+        
+# #         print("alpha_soft.shape: ", alpha_soft.shape)
+# #         print("alpha_permuted shape: ", alpha_soft.permute([2,1,0]).shape)
+        
+#         M = torch.bmm(alpha_soft.permute([1,2,0]), enc_hiddens.permute([1,0,2]))
+# #         print("M.shape: ", M.shape)
+# #         torch.stack(combined_outputs, dim=0)
+
+#         scores = self.labels_projection(M)
+# #         print(scores)
+# #         print(F.sigmoid(scores))
+#         scores = torch.sigmoid(torch.squeeze(scores,-1))
+# #         print("scores.shape: ", scores.shape)
+# #         print("scores squeezed shape: ", torch.squeeze(scores,-1).shape)
+# #         print("scores: \n", scores)
+# #         scores = 0.
+        
+#         return scores
     
     
     def encode(self, source_padded: torch.Tensor, source_lengths: List[int]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -126,7 +162,7 @@ class BiLSTM(nn.Module):
         
         params = torch.load(model_path, map_location=lambda storage, loc: storage)
         args = params['args']
-        model = BiLSTM(vocab=params['vocab'], **args)
+        model = Node(vocab=params['vocab'], **args)
         model.load_state_dict(params['state_dict'])
 
         return model

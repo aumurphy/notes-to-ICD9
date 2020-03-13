@@ -51,6 +51,7 @@ from nltk.translate.bleu_score import corpus_bleu, sentence_bleu, SmoothingFunct
 # from nmt_model import Hypothesis, NMT
 from bilstm_model import BiLSTM
 from node_model import Node
+from node_model2 import Node2
 import numpy as np
 from typing import List, Tuple, Dict, Set, Union
 from tqdm import tqdm
@@ -60,7 +61,7 @@ from vocab import Vocab, VocabEntry
 import torch
 import torch.nn.utils
 
-from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score
+from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score, classification_report  
 from statistics import harmonic_mean 
 
 
@@ -80,11 +81,18 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
     epoch_TP = 0.
     epoch_FP = 0.
     epoch_FN = 0.
+    
+#     _, dev_labels = unzip(dev_data)
+    
+#     epoch_labels = ind_to_one_hot(dev_labels, num_labels)
+    epoch_labels = torch.zeros((len(dev_data),num_labels))
+    epoch_predictions = torch.zeros(epoch_labels.shape)
 
     # no_grad() signals backend to throw away all gradients
+    item_num = 0
+    num_batch = 0
     with torch.no_grad():
         for notes_docs, notes_labels in batch_iter(dev_data, batch_size=batch_size):
-
             example_scores = model(notes_docs, notes_labels) # (batch_size,)
             labels_torch = ind_to_one_hot(notes_labels, num_labels)
             assert(labels_torch.shape == example_scores.shape)
@@ -93,11 +101,14 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
             
             predictions = torch.zeros(example_scores.shape)
             predictions[example_scores >= .5] = 1
-#             if train_iter % 25 == 0:
-#                 print("example_scores[0]: \n", example_scores[0])
-#                 print("predictions[0]:  \n", predictions[0])
-#                 print("labels_torch[0]: \n", labels_torch[0])
-            
+            if num_batch % 100 == 0:
+                print("example_scores[0]: \n", example_scores[0])
+                print("predictions[0]:  \n", predictions[0])
+                print("labels_torch[0]: \n", labels_torch[0])
+            epoch_labels[item_num:item_num+labels_torch.shape[0],:] = labels_torch
+            epoch_predictions[item_num:item_num+labels_torch.shape[0],:] = predictions
+            item_num += labels_torch.shape[0]
+            num_batch += 1
             TP, FP, FN = update_f1_metrics(predictions, labels_torch)
             epoch_TP += TP
             epoch_FP += FP
@@ -108,10 +119,21 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
             tgt_labels_num_to_predict = sum(len(s[1:]) for s in notes_labels) 
             cum_tgt_labels += tgt_labels_num_to_predict
             
-        if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
-            m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
-        else:
-            m_f1 = 0
+        # end of 'epoch'
+        f1 = f1_score(y_true=epoch_labels, y_pred=epoch_predictions, 
+                         pos_label=1, average='micro')
+#         print("calcualted val f1: ", f1)
+        cr = classification_report(y_true=epoch_labels, y_pred=epoch_predictions, 
+                                   labels=None, target_names=None, 
+                                   sample_weight=None, digits=2, 
+                                   output_dict=False)
+        print("******** Validation Report *********\n",cr)
+        
+        
+#         if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
+#             m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
+#         else:
+#             m_f1 = 0
 #         micro_F1_scores.append(m_f1)
 #         print("Hermonic mean: ", m_f1)
 
@@ -120,7 +142,7 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
     if was_training:
         model.train()
 
-    return ppl, m_f1
+    return ppl, f1
 
 
 def evaluate_ppl(model, dev_data, batch_size=32):
@@ -200,7 +222,7 @@ def train(args: Dict):
 #                 hidden_size=int(args['--hidden-size']),
 #                 dropout_rate=float(args['--dropout']),
 #                 vocab=vocab)
-    model = Node(embed_size=int(args['--embed-size']),
+    model = Node2(embed_size=int(args['--embed-size']),
                 hidden_size=int(args['--hidden-size']),
                 dropout_rate=float(args['--dropout']),
                 vocab=vocab)
@@ -230,6 +252,8 @@ def train(args: Dict):
     loss_func = torch.nn.BCELoss(reduction='sum')
     print('begin Maximum Likelihood training')
     
+    
+    
     while True:
         epoch += 1
 #         print("Epoch: {}".format(epoch))
@@ -239,6 +263,14 @@ def train(args: Dict):
         epoch_TP = 0.
         epoch_FP = 0.
         epoch_FN = 0.
+#         epoch_predictions = None
+#         epoch_labels = None
+        epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
+        epoch_labels = torch.zeros(epoch_labels.shape)
+        epoch_predictions = torch.zeros(epoch_labels.shape)
+#         print("****:", epoch_predictions.shape)
+        
+        item_num = 0
         for notes_docs, notes_labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
             train_iter += 1
 #             print("train_iter: {}".format(train_iter))
@@ -250,7 +282,15 @@ def train(args: Dict):
             example_scores = model(notes_docs, notes_labels) # (batch_size,num_labels)
             labels_torch = ind_to_one_hot(notes_labels, vocab.num_labels)
             predictions = torch.zeros(example_scores.shape)
-            predictions[example_scores >= .75] = 1
+            predictions[example_scores >= .5] = 1
+            
+            epoch_labels[item_num:item_num+labels_torch.shape[0],:] = labels_torch
+            epoch_predictions[item_num:item_num+labels_torch.shape[0],:] = predictions
+            item_num += labels_torch.shape[0]
+            
+#             print("epoch_predictions.shape: ", epoch_predictions.shape)
+#             print("epoch_labels.shape: ", epoch_labels.shape)
+#             print(epoch_predictions)
             if train_iter % 2000 == 0:
                 print("example_scores[0]: \n", example_scores[0])
                 print("predictions[0]:  \n", predictions[0])
@@ -323,15 +363,15 @@ def train(args: Dict):
                 # compute dev. ppl and bleu
 #                 dev_ppl = evaluate_ppl(model, dev_data, batch_size=128)   # dev batch size can be a bit larger
 
-                dev_ppl, m_f1 = eval_on_val(model, dev_data, loss_func, num_labels=vocab.num_labels, batch_size=128)   # dev batch size can be a bit larger
-                validation_micro_F1_scores.append(m_f1)
-                valid_metric = dev_ppl
+                dev_ppl, dev_m_f1 = eval_on_val(model, dev_data, loss_func, num_labels=vocab.num_labels, batch_size=128)   # dev batch size can be a bit larger
+                validation_micro_F1_scores.append(dev_m_f1)
+                valid_metric = dev_m_f1
 
-                print('validation: iter %d, dev. ppl      %f' % (train_iter, dev_ppl), file=sys.stderr)
-                print('validation: iter %d, dev. micro-F1 %f' % (train_iter, m_f1), file=sys.stderr)
+#                 print('validation: iter %d, dev. ppl      %f' % (train_iter, dev_ppl), file=sys.stderr)
+                print('validation: iter %d, dev. micro-F1 %f' % (train_iter, dev_m_f1), file=sys.stderr)
 
 #                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
-                is_better = len(hist_valid_scores) == 0 or valid_metric < min(hist_valid_scores)
+                is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
 
                 if is_better:
@@ -380,12 +420,29 @@ def train(args: Dict):
                     for listitem in validation_micro_F1_scores:
                         filehandle.write('%s\n' % listitem)
                 exit(0)
-        if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
-            m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
+        
+        # end of each epoch:
+        if epoch_predictions.sum() < 1 or epoch == 1:
+            f1 = 0
         else:
-            m_f1 = 0
-        training_micro_F1_scores.append(m_f1)
-        print("Training micro-F1: ", m_f1)
+            f1 = f1_score(y_true=epoch_labels, y_pred=epoch_predictions, 
+                             pos_label=1, average='micro')
+            
+            cr = classification_report(y_true=epoch_labels, y_pred=epoch_predictions, 
+                                       labels=None, target_names=None, 
+                                       sample_weight=None, digits=2, 
+                                       output_dict=False)
+            print(cr)
+        print("Training micro-f1: ", f1)
+        
+        
+        
+#         if (epoch_TP + epoch_FP)>0 and (epoch_TP + epoch_FN) > 0:
+#             m_f1 = compute_mic_f1(epoch_TP, epoch_FP, epoch_FN)
+#         else:
+#             m_f1 = 0
+#         training_micro_F1_scores.append(m_f1)
+#         print("Training micro-F1: ", m_f1)
 
 
 
