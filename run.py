@@ -96,6 +96,11 @@ def eval_on_val(model, dev_data, loss_func, device, num_labels = 19, batch_size=
         for notes_docs, notes_labels in batch_iter(dev_data, batch_size=batch_size):
             example_scores = model(notes_docs, notes_labels) # (batch_size,)
             labels_torch = ind_to_one_hot(notes_labels, num_labels)
+            
+            if args['--cuda']:
+                example_scores = example_scores.to(device)
+                labels_torch = labels_torch.to(device)
+            
             assert(labels_torch.shape == example_scores.shape)
             batch_loss = loss_func(example_scores, labels_torch)
             loss = batch_loss / len(dev_data[0])
