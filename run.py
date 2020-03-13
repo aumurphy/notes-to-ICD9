@@ -65,7 +65,7 @@ from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_sc
 from statistics import harmonic_mean 
 
 
-def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
+def eval_on_val(model, dev_data, loss_func, device, num_labels = 19, batch_size=32):
     """ Evaluate perplexity on dev sentences
     @param model (NMT): NMT Model
     @param dev_data (list of (src_sent, tgt_sent)): list of tuples containing source and target sentence
@@ -74,14 +74,14 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
     """
     was_training = model.training
     model.eval()
-    device = torch.device("cuda:0" if args['--cuda'] else "cpu")
+#     device = torch.device("cuda:0" if args['--cuda'] else "cpu")
 
     cum_loss = 0.
     cum_tgt_labels = 0.
     
-    epoch_TP = 0.
-    epoch_FP = 0.
-    epoch_FN = 0.
+#     epoch_TP = 0.
+#     epoch_FP = 0.
+#     epoch_FN = 0.
     
 #     _, dev_labels = unzip(dev_data)
     
@@ -100,7 +100,7 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
             batch_loss = loss_func(example_scores, labels_torch)
             loss = batch_loss / len(dev_data[0])
             
-            predictions = torch.zeros(example_scores.shape)
+            predictions = torch.zeros(example_scores.shape, device=device)
             predictions[example_scores >= .5] = 1
             if num_batch % 100 == 0:
                 print("example_scores[0]: \n", example_scores[0])
@@ -110,10 +110,10 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
             epoch_predictions[item_num:item_num+labels_torch.shape[0],:] = predictions
             item_num += labels_torch.shape[0]
             num_batch += 1
-            TP, FP, FN = update_f1_metrics(predictions, labels_torch)
-            epoch_TP += TP
-            epoch_FP += FP
-            epoch_FN += FN
+#             TP, FP, FN = update_f1_metrics(predictions, labels_torch)
+#             epoch_TP += TP
+#             epoch_FP += FP
+#             epoch_FN += FN
             
             cum_loss += loss.item()
 
@@ -371,7 +371,7 @@ def train(args: Dict):
                 # compute dev. ppl and bleu
 #                 dev_ppl = evaluate_ppl(model, dev_data, batch_size=128)   # dev batch size can be a bit larger
 
-                dev_ppl, dev_m_f1 = eval_on_val(model, dev_data, loss_func, num_labels=vocab.num_labels, batch_size=128)   # dev batch size can be a bit larger
+                dev_ppl, dev_m_f1 = eval_on_val(model, dev_data, loss_func, device, num_labels=vocab.num_labels, batch_size=128)   # dev batch size can be a bit larger
                 validation_micro_F1_scores.append(dev_m_f1)
                 valid_metric = dev_m_f1
 
