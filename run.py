@@ -65,7 +65,7 @@ from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_sc
 from statistics import harmonic_mean 
 
 
-def eval_on_val(model, dev_data, loss_func, device, num_labels = 19, batch_size=32):
+def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_size=32):
     """ Evaluate perplexity on dev sentences
     @param model (NMT): NMT Model
     @param dev_data (list of (src_sent, tgt_sent)): list of tuples containing source and target sentence
@@ -97,7 +97,7 @@ def eval_on_val(model, dev_data, loss_func, device, num_labels = 19, batch_size=
             example_scores = model(notes_docs, notes_labels) # (batch_size,)
             labels_torch = ind_to_one_hot(notes_labels, num_labels)
             
-            if args['--cuda']:
+            if device not None:
                 example_scores = example_scores.to(device)
                 labels_torch = labels_torch.to(device)
             
