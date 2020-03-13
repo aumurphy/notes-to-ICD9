@@ -97,7 +97,7 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
             example_scores = model(notes_docs, notes_labels) # (batch_size,)
             labels_torch = ind_to_one_hot(notes_labels, num_labels)
             
-            if device not None:
+            if device is not None:
                 example_scores = example_scores.to(device)
                 labels_torch = labels_torch.to(device)
             
