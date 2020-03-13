@@ -74,6 +74,7 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
     """
     was_training = model.training
     model.eval()
+    device = torch.device("cuda:0" if args['--cuda'] else "cpu")
 
     cum_loss = 0.
     cum_tgt_labels = 0.
@@ -85,8 +86,8 @@ def eval_on_val(model, dev_data, loss_func, num_labels = 19, batch_size=32):
 #     _, dev_labels = unzip(dev_data)
     
 #     epoch_labels = ind_to_one_hot(dev_labels, num_labels)
-    epoch_labels = torch.zeros((len(dev_data),num_labels))
-    epoch_predictions = torch.zeros(epoch_labels.shape)
+    epoch_labels = torch.zeros((len(dev_data),num_labels), device=device)
+    epoch_predictions = torch.zeros(epoch_labels.shape, device=device)
 
     # no_grad() signals backend to throw away all gradients
     item_num = 0
@@ -268,7 +269,6 @@ def train(args: Dict):
         epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
         epoch_labels = torch.zeros(epoch_labels.shape).to(device)
         epoch_predictions = torch.zeros(epoch_labels.shape).to(device)
-        print("****:", epoch_predictions.shape)
         
         item_num = 0
         for notes_docs, notes_labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
@@ -305,9 +305,9 @@ def train(args: Dict):
             epoch_FP += FP
             epoch_FN += FN
                                         
-            print(predictions.device)
-            print("hello :) ")
-            print(epoch_labels.device)
+#             print(predictions.device)
+#             print("hello :) ")
+#             print(epoch_labels.device)
 
             assert(labels_torch.shape == example_scores.shape)
             batch_loss = loss_func(example_scores, labels_torch)
