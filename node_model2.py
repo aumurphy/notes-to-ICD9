@@ -92,7 +92,7 @@ class Node2(nn.Module):
         alpha = self.attention_projection(enc_hiddens)
 #         print("alpha.shape: ", alpha.shape)
 
-        alpha = self.dropout1(alpha)
+#         alpha = self.dropout1(alpha)
         
                 
         alpha_soft = self.attention_softmax(alpha)
@@ -101,6 +101,8 @@ class Node2(nn.Module):
         M = torch.bmm(alpha_soft.permute([1,2,0]), enc_hiddens.permute([1,0,2]))
 #         print("M.shape: ", M.shape)
 #         torch.stack(combined_outputs, dim=0)
+
+        M = self.dropout1(M)
 
         scores = self.labels_projection(M)
     
