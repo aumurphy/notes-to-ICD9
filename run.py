@@ -407,10 +407,10 @@ def train(args: Dict):
         if epoch_predictions.sum() < 1 or epoch == 1:
             f1 = 0
         else:
-            f1 = f1_score(y_true=epoch_labels, y_pred=epoch_predictions, 
+            f1 = f1_score(y_true=epoch_labels.cpu(), y_pred=epoch_predictions.cpu(), 
                              pos_label=1, average='micro')
             
-            cr = classification_report(y_true=epoch_labels, y_pred=epoch_predictions, 
+            cr = classification_report(y_true=epoch_labels.cpu(), y_pred=epoch_predictions.cpu(), 
                                        labels=None, target_names=None, 
                                        sample_weight=None, digits=2, 
                                        output_dict=False)
