@@ -47,16 +47,7 @@ class Node2(nn.Module):
                                # dropout=self.dropout_rate,
                                bidirectional=True)
         
-#         self.first_bilstm = BiLSTM(embed_size=embed_size,
-#                                     hidden_size=hidden_size,
-#                                     dropout_rate=dropout_rate,
-#                                     vocab=vocab)
-#         self.second_bilstm = BiLSTM(embed_size=embed_size,
-#                                     hidden_size=hidden_size,
-#                                     dropout_rate=dropout_rate,
-#                                     vocab=vocab)
-        
-#         self.dropout1 = nn.Dropout()
+        self.dropout1 = nn.Dropout()
         
         self.attention_projection = nn.Linear(in_features=2*hidden_size, 
                                                  out_features=self.num_labels, 
@@ -100,6 +91,8 @@ class Node2(nn.Module):
 
         alpha = self.attention_projection(enc_hiddens)
 #         print("alpha.shape: ", alpha.shape)
+
+        alpha = self.dropout1(alpha)
         
                 
         alpha_soft = self.attention_softmax(alpha)
