@@ -266,9 +266,9 @@ def train(args: Dict):
 #         epoch_predictions = None
 #         epoch_labels = None
         epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
-        epoch_labels = torch.zeros(epoch_labels.shape)
-        epoch_predictions = torch.zeros(epoch_labels.shape)
-#         print("****:", epoch_predictions.shape)
+        epoch_labels = torch.zeros(epoch_labels.shape).to(device)
+        epoch_predictions = torch.zeros(epoch_labels.shape.to(device)
+        print("****:", epoch_predictions.shape)
         
         item_num = 0
         for notes_docs, notes_labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
@@ -281,7 +281,11 @@ def train(args: Dict):
 #             print(model.model_embeddings.note_embeds.weight.device)
             example_scores = model(notes_docs, notes_labels) # (batch_size,num_labels)
             labels_torch = ind_to_one_hot(notes_labels, vocab.num_labels)
-            predictions = torch.zeros(example_scores.shape)
+            if args['--cuda']:
+                example_scores = example_scores.to(device)
+                labels_torch = labels_torch.to(device)
+            predictions = torch.zeros(example_scores.shape, device=device)
+                                        
             predictions[example_scores >= .5] = 1
             
             epoch_labels[item_num:item_num+labels_torch.shape[0],:] = labels_torch
@@ -300,6 +304,10 @@ def train(args: Dict):
             epoch_TP += TP
             epoch_FP += FP
             epoch_FN += FN
+                                        
+            print(predictions.device)
+            print("hello :) ")
+            print(epoch_labels.device)
 
             assert(labels_torch.shape == example_scores.shape)
             batch_loss = loss_func(example_scores, labels_torch)
