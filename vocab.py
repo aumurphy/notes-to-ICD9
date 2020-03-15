@@ -219,7 +219,8 @@ if __name__ == '__main__':
                                         remove_stopwords=bool(args['--remove_stopwords']))
     
     print("parsing label file: ")
-    num_labels = get_all_labels(args['--labels_file'], KNOWN_NUM_LABELS=19)
+#     num_labels = get_all_labels(args['--labels_file'], KNOWN_NUM_LABELS=19)
+    num_labels = get_all_labels(args['--labels_file'], KNOWN_NUM_LABELS=941)
 
     vocab = Vocab.build(train_data_notes, int(args['--size']), int(args['--freq-cutoff']), num_labels)
     print('generated vocabulary, source %d words, number of labels = %d' % (len(vocab.notes_), num_labels))
