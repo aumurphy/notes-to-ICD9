@@ -6,7 +6,8 @@ if [ "$1" = "train" ]; then
 elif [ "$1" = "test" ]; then
         CUDA_VISIBLE_DEVICES=0 python run.py test --vocab=vocab.json model.bin ./data/small/test_text.csv ./data/small/test_labels.csv results/test_predictions.npy outputs/test_outputs.txt --cuda
 elif [ "$1" = "train_local_tiny" ]; then
-	python run.py train --notes_file=./data/tiny/train_text.csv --labels_file=./data/tiny/train_labels.csv --sent_max_length=1000 --remove_stopwords --dev-notes=./data/tiny/dev_text.csv --dev-labels=./data/tiny/dev_labels.csv --vocab=vocab.json --valid-niter=30 --save-to=./node2_models_2bilstm_500each.bin --max-epoch=30
+	python run.py train --notes_file=./data/tiny/train_text.csv --labels_file=./data/tiny/train_labels_rolled_up.csv --sent_max_length=1000 --remove_stopwords --dev-notes=./data/tiny/dev_text.csv --dev-labels=./data/tiny/dev_labels_rolled_up.csv --vocab=vocab.json --valid-niter=30 --save-to=./node2_models_2bilstm_500each.bin --max-epoch=30
+# 	python run.py train --notes_file=./data/tiny/train_text.csv --labels_file=./data/tiny/train_labels.csv --sent_max_length=1000 --remove_stopwords --dev-notes=./data/tiny/dev_text.csv --dev-labels=./data/tiny/dev_labels.csv --vocab=vocab.json --valid-niter=30 --save-to=./node2_models_2bilstm_500each.bin --max-epoch=30
 elif [ "$1" = "train_local_small" ]; then
 	python run.py train --notes_file=./data/small/train_text.csv --labels_file=./data/small/train_labels.csv --sent_max_length=1000 --remove_stopwords --dev-notes=./data/small/dev_text.csv --dev-labels=./data/small/dev_labels.csv --vocab=vocab.json --save-to=./node2_models_2bilstm_500each.bin --max-epoch=30 --valid-niter=30
 elif [ "$1" = "train_local_full" ]; then
