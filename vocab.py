@@ -205,6 +205,9 @@ class Vocab(object):
         when printing the object.
         """
         return 'Vocab(source %d words)' % (len(self.notes_))
+    
+    def set_num_labels(self, num_labels):
+        self.num_labels = num_labels
 
 
 ## Command

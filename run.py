@@ -55,7 +55,7 @@ from node_model2 import Node2
 import numpy as np
 from typing import List, Tuple, Dict, Set, Union
 from tqdm import tqdm
-from utils import read_corpus, batch_iter, ind_to_one_hot
+from utils import read_corpus, batch_iter, ind_to_one_hot, get_all_labels
 from vocab import Vocab, VocabEntry
 
 import torch
@@ -63,6 +63,7 @@ import torch.nn.utils
 
 from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score, classification_report  
 from statistics import harmonic_mean 
+from pickle import load
 
 
 def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_size=32):
@@ -74,6 +75,8 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
     """
     was_training = model.training
     model.eval()
+    
+    mlb = load(open('./mlb_rolledup.pkl', 'rb'))
 
     cum_loss = 0.
     cum_tgt_labels = 0.
@@ -87,7 +90,8 @@ def eval_on_val(model, dev_data, loss_func, device=None, num_labels = 19, batch_
     with torch.no_grad():
         for notes_docs, notes_labels in batch_iter(dev_data, batch_size=batch_size):
             example_scores = model(notes_docs, notes_labels) # (batch_size,)
-            labels_torch = ind_to_one_hot(notes_labels, num_labels)
+#             labels_torch = ind_to_one_hot(notes_labels, num_labels)
+            labels_torch = torch.from_numpy(mlb.transform(notes_labels).astype('float32'))
             
             if device is not None:
                 example_scores = example_scores.to(device)
@@ -205,6 +209,10 @@ def train(args: Dict):
 
     vocab = Vocab.load(args['--vocab'])
     
+    num_all_labels = get_all_labels('./data/full/rolled_up_labels.csv',0)
+    
+    vocab.set_num_labels(num_all_labels)
+    
 #     model = BiLSTM(embed_size=int(args['--embed-size']),
 #                 hidden_size=int(args['--hidden-size']),
 #                 dropout_rate=float(args['--dropout']),
@@ -214,6 +222,9 @@ def train(args: Dict):
                 dropout_rate=float(args['--dropout']),
                 vocab=vocab)
     model.train()
+    
+    # Multi label binarizer
+    mlb = load(open('./mlb_rolledup.pkl', 'rb'))
     
     uniform_init = float(args['--uniform-init'])
     if np.abs(uniform_init) > 0.:
@@ -247,9 +258,11 @@ def train(args: Dict):
 #         if epoch == 20:
 #             exit(0)
 
-        epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
+#         epoch_labels = ind_to_one_hot(train_data_labels, vocab.num_labels)
+        epoch_labels = mlb.transform(train_data_labels)
         epoch_labels = torch.zeros(epoch_labels.shape).to(device)
         epoch_predictions = torch.zeros(epoch_labels.shape).to(device)
+        
         
         item_num = 0
         for notes_docs, notes_labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
@@ -260,11 +273,14 @@ def train(args: Dict):
             batch_size = len(notes_docs)
 #             print(model.model_embeddings.note_embeds.weight.device)
             example_scores = model(notes_docs, notes_labels) # (batch_size,num_labels)
-            labels_torch = ind_to_one_hot(notes_labels, vocab.num_labels)
+#             labels_torch = ind_to_one_hot(notes_labels, vocab.num_labels)
+            labels_torch = torch.from_numpy(mlb.transform(notes_labels).astype('float32'))
+#             print(labels_torch)
             if args['--cuda']:
                 example_scores = example_scores.to(device)
                 labels_torch = labels_torch.to(device)
             predictions = torch.zeros(example_scores.shape, device=device)
+            
                                         
             predictions[example_scores >= .5] = 1
             
@@ -272,9 +288,6 @@ def train(args: Dict):
             epoch_predictions[item_num:item_num+labels_torch.shape[0],:] = predictions
             item_num += labels_torch.shape[0]
             
-#             print("epoch_predictions.shape: ", epoch_predictions.shape)
-#             print("epoch_labels.shape: ", epoch_labels.shape)
-#             print(epoch_predictions)
             if train_iter % 1000 == 0:
                 idx = np.random.randint(low=0, high=batch_size-1)
                 print("Training example: \n")
@@ -286,8 +299,6 @@ def train(args: Dict):
             assert(labels_torch.shape == example_scores.shape)
             batch_loss = loss_func(example_scores, labels_torch)
             loss = batch_loss / batch_size
-#             print("loss: ", loss)
-#             print()
             
 
             loss.backward()

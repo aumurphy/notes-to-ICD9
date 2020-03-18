@@ -118,7 +118,7 @@ def get_all_labels(file_path, KNOWN_NUM_LABELS):
                 line_count += 1
         print(f'Processed {line_count} lines.')
     
-    return max(max(all_labels), len(all_labels), KNOWN_NUM_LABELS)
+    return max(len(all_labels), KNOWN_NUM_LABELS)
 
 
 def batch_iter(data, batch_size, shuffle=False):
